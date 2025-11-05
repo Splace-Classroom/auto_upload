@@ -1,0 +1,166 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Observer for file events
+ *
+ * @package    block_auto_upload
+ * @copyright  2024 Your Name
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+namespace block_auto_upload;
+
+defined('MOODLE_INTERNAL') || die();
+
+class observer {
+
+    /**
+     * Handle file created events
+     *
+     * @param \core\event\base $event
+     */
+    public static function file_created(\core\event\base $event) {
+        self::handle_file_event($event);
+    }
+
+    /**
+     * Handle file uploaded events
+     *
+     * @param \core\event\base $event
+     */
+    public static function file_uploaded(\core\event\base $event) {
+        self::handle_file_event($event);
+    }
+
+    /**
+     * Handle file events and upload to external API
+     *
+     * @param \core\event\base $event
+     */
+    private static function handle_file_event(\core\event\base $event) {
+        global $DB;
+
+        // Check if auto upload is enabled
+        $enabled = get_config('block_auto_upload', 'enabled');
+        if (!$enabled) {
+            return;
+        }
+
+        // Get the file from the event
+        $fs = get_file_storage();
+        $file = $fs->get_file_by_id($event->objectid);
+        
+        if (!$file || $file->is_directory()) {
+            return;
+        }
+
+        // Get context information
+        $context = \context::instance_by_id($event->contextid);
+        $course_id = 0;
+        $module_id = 0;
+
+        // Determine course_id and module_id based on context
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            $course_id = $context->instanceid;
+        } else if ($context->contextlevel == CONTEXT_MODULE) {
+            $module_id = $context->instanceid;
+            // Get course from module
+            $cm = get_coursemodule_from_id('', $module_id);
+            if ($cm) {
+                $course_id = $cm->course;
+            }
+        } else if ($context->contextlevel == CONTEXT_COURSECAT) {
+            // For course category context, we might not have specific course/module
+            return;
+        } else {
+            // Try to get course from context path
+            $course_context = $context->get_course_context(false);
+            if ($course_context) {
+                $course_id = $course_context->instanceid;
+            }
+        }
+
+        // If we still don't have course_id, skip
+        if ($course_id <= 0) {
+            return;
+        }
+
+        // Prepare file data for upload
+        $file_content = $file->get_content();
+        $filename = $file->get_filename();
+        $mimetype = $file->get_mimetype();
+
+        // Upload to external API
+        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id);
+    }
+
+    /**
+     * Upload file to external API
+     *
+     * @param string $file_content
+     * @param string $filename
+     * @param string $mimetype
+     * @param int $course_id
+     * @param int $module_id
+     */
+    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id) {
+        // Get API endpoint
+        $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
+        if (empty($api_endpoint)) {
+            $api_endpoint = 'http://165.22.62.163:5000/uploads';
+        }
+
+        // Create temporary file for upload
+        $temp_file = tempnam(sys_get_temp_dir(), 'moodle_upload_');
+        file_put_contents($temp_file, $file_content);
+
+        // Prepare form data
+        $post_data = array(
+            'course_id' => $course_id,
+            'module_id' => $module_id,
+            'file' => new \CURLFile($temp_file, $mimetype, $filename)
+        );
+
+        // Initialize cURL
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $api_endpoint);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
+        // Execute the request
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        // Clean up temporary file
+        unlink($temp_file);
+
+        // Log the result (optional)
+        if ($response !== false && $http_code == 200) {
+            // Success - could log to Moodle logs if needed
+            error_log("Auto upload success: $filename to course $course_id, module $module_id");
+        } else {
+            // Failed - log error
+            $error_message = !empty($error) ? $error : "HTTP Code: $http_code";
+            error_log("Auto upload failed: $filename - $error_message");
+        }
+    }
+}
