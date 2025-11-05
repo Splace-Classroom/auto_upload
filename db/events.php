@@ -31,6 +31,11 @@ $observers = array(
         'internal' => false,
     ),
     array(
+        'eventname' => '\core\event\file_uploaded',
+        'callback' => '\block_auto_upload\observer::file_created',
+        'internal' => false,
+    ),
+    array(
         'eventname' => '\assignsubmission_file\event\submission_created',
         'callback' => '\block_auto_upload\observer::file_uploaded',
         'internal' => false,
@@ -41,12 +46,22 @@ $observers = array(
         'internal' => false,
     ),
     array(
-        'eventname' => '\mod_resource\event\resource_created',
+        'eventname' => '\mod_resource\event\course_module_created',
         'callback' => '\block_auto_upload\observer::file_uploaded',
         'internal' => false,
     ),
     array(
-        'eventname' => '\mod_resource\event\resource_updated',
+        'eventname' => '\mod_resource\event\course_module_updated',
+        'callback' => '\block_auto_upload\observer::file_uploaded',
+        'internal' => false,
+    ),
+    array(
+        'eventname' => '\core\event\course_module_created',
+        'callback' => '\block_auto_upload\observer::file_uploaded',
+        'internal' => false,
+    ),
+    array(
+        'eventname' => '\core\event\course_module_updated',
         'callback' => '\block_auto_upload\observer::file_uploaded',
         'internal' => false,
     ),

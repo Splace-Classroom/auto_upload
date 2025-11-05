@@ -54,21 +54,17 @@ class observer {
     private static function handle_file_event(\core\event\base $event) {
         global $DB;
 
+        // Debug logging
+        error_log("Auto upload: Event received - " . $event->eventname . " Object ID: " . $event->objectid . " Context ID: " . $event->contextid);
+
         // Check if auto upload is enabled
         $enabled = get_config('block_auto_upload', 'enabled');
         if (!$enabled) {
+            error_log("Auto upload: Disabled, skipping");
             return;
         }
 
-        // Get the file from the event
-        $fs = get_file_storage();
-        $file = $fs->get_file_by_id($event->objectid);
-        
-        if (!$file || $file->is_directory()) {
-            return;
-        }
-
-        // Get context information
+        // Get context information first
         $context = \context::instance_by_id($event->contextid);
         $course_id = 0;
         $module_id = 0;
@@ -85,6 +81,7 @@ class observer {
             }
         } else if ($context->contextlevel == CONTEXT_COURSECAT) {
             // For course category context, we might not have specific course/module
+            error_log("Auto upload: Course category context, skipping");
             return;
         } else {
             // Try to get course from context path
@@ -96,6 +93,27 @@ class observer {
 
         // If we still don't have course_id, skip
         if ($course_id <= 0) {
+            error_log("Auto upload: No valid course_id found, skipping");
+            return;
+        }
+
+        // For module events, try to find associated files
+        if (in_array($event->eventname, [
+            '\core\event\course_module_created',
+            '\core\event\course_module_updated',
+            '\mod_resource\event\course_module_created',
+            '\mod_resource\event\course_module_updated'
+        ])) {
+            self::handle_module_event($event, $course_id, $module_id);
+            return;
+        }
+
+        // For file events, get the specific file
+        $fs = get_file_storage();
+        $file = $fs->get_file_by_id($event->objectid);
+        
+        if (!$file || $file->is_directory()) {
+            error_log("Auto upload: No valid file found or is directory, object ID: " . $event->objectid);
             return;
         }
 
@@ -104,8 +122,41 @@ class observer {
         $filename = $file->get_filename();
         $mimetype = $file->get_mimetype();
 
+        error_log("Auto upload: Processing file - $filename, Course: $course_id, Module: $module_id");
+
         // Upload to external API
         self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id);
+    }
+
+    /**
+     * Handle module creation/update events to find associated files
+     *
+     * @param \core\event\base $event
+     * @param int $course_id
+     * @param int $module_id
+     */
+    private static function handle_module_event(\core\event\base $event, $course_id, $module_id) {
+        global $DB;
+
+        // Get all files in the module context
+        $fs = get_file_storage();
+        $context = \context::instance_by_id($event->contextid);
+        
+        // Get files from the module context
+        $files = $fs->get_area_files($context->id, 'mod_resource', 'content', false, 'timemodified DESC', false);
+        
+        foreach ($files as $file) {
+            if (!$file->is_directory()) {
+                $file_content = $file->get_content();
+                $filename = $file->get_filename();
+                $mimetype = $file->get_mimetype();
+                
+                error_log("Auto upload: Processing module file - $filename, Course: $course_id, Module: $module_id");
+                
+                // Upload to external API
+                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id);
+            }
+        }
     }
 
     /**
@@ -124,16 +175,20 @@ class observer {
             $api_endpoint = 'http://165.22.62.163:5000/uploads';
         }
 
+        error_log("Auto upload: Uploading to API - $api_endpoint");
+
         // Create temporary file for upload
         $temp_file = tempnam(sys_get_temp_dir(), 'moodle_upload_');
         file_put_contents($temp_file, $file_content);
 
         // Prepare form data
         $post_data = array(
-            'course_id' => $course_id,
-            'module_id' => $module_id,
+            'course_id' => (string)$course_id,
+            'module_id' => (string)$module_id,
             'file' => new \CURLFile($temp_file, $mimetype, $filename)
         );
+
+        error_log("Auto upload: Sending data - Course: $course_id, Module: $module_id, File: $filename");
 
         // Initialize cURL
         $ch = curl_init();
@@ -143,6 +198,7 @@ class observer {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_VERBOSE, true);
 
         // Execute the request
         $response = curl_exec($ch);
@@ -153,14 +209,12 @@ class observer {
         // Clean up temporary file
         unlink($temp_file);
 
-        // Log the result (optional)
+        // Log the result
         if ($response !== false && $http_code == 200) {
-            // Success - could log to Moodle logs if needed
-            error_log("Auto upload success: $filename to course $course_id, module $module_id");
+            error_log("Auto upload SUCCESS: $filename to course $course_id, module $module_id - Response: " . substr($response, 0, 200));
         } else {
-            // Failed - log error
             $error_message = !empty($error) ? $error : "HTTP Code: $http_code";
-            error_log("Auto upload failed: $filename - $error_message");
+            error_log("Auto upload FAILED: $filename - $error_message - Response: " . substr($response, 0, 200));
         }
     }
 }
