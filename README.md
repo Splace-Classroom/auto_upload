@@ -21,7 +21,7 @@ A Moodle block plugin that automatically uploads files to an external API endpoi
 ### Global Settings
 
 - **Enable auto upload**: Turn the auto upload functionality on/off
-- **API Endpoint URL**: Configure the external API endpoint (default: http://165.22.62.163:5000/uploads)
+- **API Endpoint URL**: Configure the external API endpoint (default: http://103.155.224.67:5200/uploads)
 
 ### Block Settings
 

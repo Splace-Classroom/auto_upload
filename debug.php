@@ -138,7 +138,7 @@ if (isset($_POST['manual_test']) && confirm_sesskey()) {
         // Call the upload function directly
         require_once(__DIR__ . '/classes/observer.php');
         
-        $api_endpoint = get_config('block_auto_upload', 'api_endpoint') ?: 'http://165.22.62.163:5000/uploads';
+        $api_endpoint = get_config('block_auto_upload', 'api_endpoint') ?: 'http://103.155.224.67:5200/uploads';
         
         // Create temporary file for upload
         $temp_file = tempnam(sys_get_temp_dir(), 'moodle_upload_');

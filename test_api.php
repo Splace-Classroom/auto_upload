@@ -33,7 +33,7 @@ require_capability('moodle/site:config', context_system::instance());
 // Get API endpoint
 $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
 if (empty($api_endpoint)) {
-    $api_endpoint = 'http://165.22.62.163:5000/uploads';
+    $api_endpoint = 'http://103.155.224.67:5200/uploads';
 }
 
 // Test connection using cURL

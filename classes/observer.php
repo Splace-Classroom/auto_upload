@@ -172,7 +172,7 @@ class observer {
         // Get API endpoint
         $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
         if (empty($api_endpoint)) {
-            $api_endpoint = 'http://165.22.62.163:5000/uploads';
+            $api_endpoint = 'http://103.155.224.67:5200/uploads';
         }
 
         error_log("Auto upload: Uploading to API - $api_endpoint");

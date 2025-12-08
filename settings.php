@@ -39,7 +39,7 @@ if ($ADMIN->fulltree) {
         'block_auto_upload/api_endpoint',
         get_string('config_api_endpoint', 'block_auto_upload'),
         get_string('config_api_endpoint_desc', 'block_auto_upload'),
-        'http://165.22.62.163:5000/uploads',
+        'http://103.155.224.67:5200/uploads',
         PARAM_URL
     ));
 }
