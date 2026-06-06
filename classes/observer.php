@@ -125,10 +125,13 @@ class observer {
         // Get site identifier
         $site_identifier = self::get_site_identifier();
 
-        error_log("Auto upload: Processing file - $filename, Course: $course_id, Module: $module_id, Site: $site_identifier");
+        // Get course name
+        $course_name = self::get_course_name($course_id);
+
+        error_log("Auto upload: Processing file - $filename, Course: $course_id ($course_name), Module: $module_id, Site: $site_identifier");
 
         // Upload to external API
-        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier);
+        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier, $course_name);
     }
 
     /**
@@ -157,10 +160,13 @@ class observer {
                 // Get site identifier
                 $site_identifier = self::get_site_identifier();
 
-                error_log("Auto upload: Processing module file - $filename, Course: $course_id, Module: $module_id, Site: $site_identifier");
+                // Get course name
+                $course_name = self::get_course_name($course_id);
+
+                error_log("Auto upload: Processing module file - $filename, Course: $course_id ($course_name), Module: $module_id, Site: $site_identifier");
                 
                 // Upload to external API
-                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier);
+                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier, $course_name);
             }
         }
     }
@@ -181,6 +187,22 @@ class observer {
     }
 
     /**
+     * Get course name from course ID
+     *
+     * @param int $course_id
+     * @return string
+     */
+    private static function get_course_name($course_id) {
+        global $DB;
+        
+        $course = $DB->get_record('course', array('id' => $course_id), 'fullname');
+        if ($course) {
+            return $course->fullname;
+        }
+        return 'Unknown Course';
+    }
+
+    /**
      * Upload file to external API
      *
      * @param string $file_content
@@ -189,8 +211,9 @@ class observer {
      * @param int $course_id
      * @param int $module_id
      * @param string $site_identifier
+     * @param string $course_name
      */
-    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier = 'unknown') {
+    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier = 'unknown', $course_name = '') {
         // Get API endpoint
         $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
         if (empty($api_endpoint)) {
@@ -207,7 +230,8 @@ class observer {
         $post_data = array(
             'course_id' => (string)$course_id,
             'module_id' => (string)$module_id,
-            'site_identifier' => (string)$site_identifier,
+            'siteidentifier' => (string)$site_identifier,
+            'course_name' => (string)$course_name,
             'file' => new \CURLFile($temp_file, $mimetype, $filename)
         );
 
