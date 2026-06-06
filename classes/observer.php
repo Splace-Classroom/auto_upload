@@ -122,10 +122,13 @@ class observer {
         $filename = $file->get_filename();
         $mimetype = $file->get_mimetype();
 
-        error_log("Auto upload: Processing file - $filename, Course: $course_id, Module: $module_id");
+        // Get site identifier
+        $site_identifier = self::get_site_identifier();
+
+        error_log("Auto upload: Processing file - $filename, Course: $course_id, Module: $module_id, Site: $site_identifier");
 
         // Upload to external API
-        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id);
+        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier);
     }
 
     /**
@@ -151,12 +154,30 @@ class observer {
                 $filename = $file->get_filename();
                 $mimetype = $file->get_mimetype();
                 
-                error_log("Auto upload: Processing module file - $filename, Course: $course_id, Module: $module_id");
+                // Get site identifier
+                $site_identifier = self::get_site_identifier();
+
+                error_log("Auto upload: Processing module file - $filename, Course: $course_id, Module: $module_id, Site: $site_identifier");
                 
                 // Upload to external API
-                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id);
+                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier);
             }
         }
+    }
+
+    /**
+     * Get site identifier from Moodle config
+     *
+     * @return string
+     */
+    private static function get_site_identifier() {
+        global $DB;
+        
+        $config = $DB->get_record('config', array('name' => 'siteidentifier'));
+        if ($config) {
+            return $config->value;
+        }
+        return 'unknown';
     }
 
     /**
@@ -167,8 +188,9 @@ class observer {
      * @param string $mimetype
      * @param int $course_id
      * @param int $module_id
+     * @param string $site_identifier
      */
-    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id) {
+    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier = 'unknown') {
         // Get API endpoint
         $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
         if (empty($api_endpoint)) {
@@ -185,10 +207,11 @@ class observer {
         $post_data = array(
             'course_id' => (string)$course_id,
             'module_id' => (string)$module_id,
+            'site_identifier' => (string)$site_identifier,
             'file' => new \CURLFile($temp_file, $mimetype, $filename)
         );
 
-        error_log("Auto upload: Sending data - Course: $course_id, Module: $module_id, File: $filename");
+        error_log("Auto upload: Sending data - Course: $course_id, Module: $module_id, Site: $site_identifier, File: $filename");
 
         // Initialize cURL
         $ch = curl_init();
