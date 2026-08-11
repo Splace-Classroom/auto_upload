@@ -30,11 +30,17 @@ require_sesskey();
 // Check if user is admin
 require_capability('moodle/site:config', context_system::instance());
 
-// Get API endpoint
+// Get API endpoint and key
 $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
 if (empty($api_endpoint)) {
-    $api_endpoint = 'http://103.155.224.67:5200/uploads';
+    \core\notification::error(get_string('api_test_failed', 'block_auto_upload', 'API Endpoint URL is not configured in settings.'));
+    $return = optional_param('return', '', PARAM_LOCALURL);
+    if (empty($return)) {
+        $return = new moodle_url('/');
+    }
+    redirect($return);
 }
+$api_key = get_config('block_auto_upload', 'api_key');
 
 // Test connection using cURL
 $ch = curl_init();
@@ -45,6 +51,12 @@ curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'OPTIONS'); // Use OPTIONS to test connectivity
 curl_setopt($ch, CURLOPT_HEADER, true);
 curl_setopt($ch, CURLOPT_NOBODY, true);
+
+if (!empty($api_key)) {
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'X-API-Key: ' . $api_key
+    ));
+}
 
 $response = curl_exec($ch);
 $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -122,16 +122,13 @@ class observer {
         $filename = $file->get_filename();
         $mimetype = $file->get_mimetype();
 
-        // Get site identifier
-        $site_identifier = self::get_site_identifier();
-
         // Get course name
         $course_name = self::get_course_name($course_id);
 
-        error_log("Auto upload: Processing file - $filename, Course: $course_id ($course_name), Module: $module_id, Site: $site_identifier");
+        error_log("Auto upload: Processing file - $filename, Course: $course_id ($course_name), Module: $module_id");
 
         // Upload to external API
-        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier, $course_name);
+        self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $course_name);
     }
 
     /**
@@ -157,33 +154,15 @@ class observer {
                 $filename = $file->get_filename();
                 $mimetype = $file->get_mimetype();
                 
-                // Get site identifier
-                $site_identifier = self::get_site_identifier();
-
                 // Get course name
                 $course_name = self::get_course_name($course_id);
 
-                error_log("Auto upload: Processing module file - $filename, Course: $course_id ($course_name), Module: $module_id, Site: $site_identifier");
+                error_log("Auto upload: Processing module file - $filename, Course: $course_id ($course_name), Module: $module_id");
                 
                 // Upload to external API
-                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier, $course_name);
+                self::upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $course_name);
             }
         }
-    }
-
-    /**
-     * Get site identifier from Moodle config
-     *
-     * @return string
-     */
-    private static function get_site_identifier() {
-        global $DB;
-        
-        $config = $DB->get_record('config', array('name' => 'siteidentifier'));
-        if ($config) {
-            return $config->value;
-        }
-        return 'unknown';
     }
 
     /**
@@ -210,15 +189,17 @@ class observer {
      * @param string $mimetype
      * @param int $course_id
      * @param int $module_id
-     * @param string $site_identifier
      * @param string $course_name
      */
-    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $site_identifier = 'unknown', $course_name = '') {
+    private static function upload_to_api($file_content, $filename, $mimetype, $course_id, $module_id, $course_name = '') {
         // Get API endpoint
         $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
         if (empty($api_endpoint)) {
-            $api_endpoint = 'http://103.155.224.67:5200/uploads';
+            error_log("Auto upload: API endpoint URL is not configured, skipping upload");
+            return;
         }
+
+        $api_key = get_config('block_auto_upload', 'api_key');
 
         error_log("Auto upload: Uploading to API - $api_endpoint");
 
@@ -230,18 +211,26 @@ class observer {
         $post_data = array(
             'course_id' => (string)$course_id,
             'module_id' => (string)$module_id,
-            'siteidentifier' => (string)$site_identifier,
             'course_name' => (string)$course_name,
             'file' => new \CURLFile($temp_file, $mimetype, $filename)
         );
 
-        error_log("Auto upload: Sending data - Course: $course_id, Module: $module_id, Site: $site_identifier, File: $filename");
+        error_log("Auto upload: Sending data - Course: $course_id, Module: $module_id, File: $filename");
+
+        // Set headers
+        $headers = array();
+        if (!empty($api_key)) {
+            $headers[] = 'X-API-Key: ' . $api_key;
+        }
 
         // Initialize cURL
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $api_endpoint);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+        if (!empty($headers)) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);

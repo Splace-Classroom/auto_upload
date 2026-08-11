@@ -24,11 +24,13 @@ echo '<h2>Auto Upload Debug Information</h2>';
 // Check if plugin is enabled
 $enabled = get_config('block_auto_upload', 'enabled');
 $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
+$api_key = get_config('block_auto_upload', 'api_key');
 
 echo '<div class="alert alert-info">';
 echo '<h3>Plugin Configuration</h3>';
 echo '<p><strong>Auto Upload Enabled:</strong> ' . ($enabled ? 'Yes' : 'No') . '</p>';
 echo '<p><strong>API Endpoint:</strong> ' . ($api_endpoint ?: 'Not set') . '</p>';
+echo '<p><strong>API Key:</strong> ' . ($api_key ? 'Set (' . substr($api_key, 0, 4) . '***)' : 'Not set') . '</p>';
 echo '</div>';
 
 // Check if observers are registered
@@ -138,7 +140,13 @@ if (isset($_POST['manual_test']) && confirm_sesskey()) {
         // Call the upload function directly
         require_once(__DIR__ . '/classes/observer.php');
         
-        $api_endpoint = get_config('block_auto_upload', 'api_endpoint') ?: 'http://103.155.224.67:5200/uploads';
+        $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
+        if (empty($api_endpoint)) {
+            echo '<div class="alert alert-danger"><p><strong>Error:</strong> API Endpoint URL is not configured in settings.</p></div></div>';
+            echo $OUTPUT->footer();
+            die();
+        }
+        $api_key = get_config('block_auto_upload', 'api_key');
         
         // Create temporary file for upload
         $temp_file = tempnam(sys_get_temp_dir(), 'moodle_upload_');
@@ -151,11 +159,19 @@ if (isset($_POST['manual_test']) && confirm_sesskey()) {
             'file' => new CURLFile($temp_file, $mimetype, $filename)
         );
 
+        $headers = array();
+        if (!empty($api_key)) {
+            $headers[] = 'X-API-Key: ' . $api_key;
+        }
+
         // Initialize cURL
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $api_endpoint);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+        if (!empty($headers)) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);

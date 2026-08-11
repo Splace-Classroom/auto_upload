@@ -40,6 +40,8 @@ $string['api_endpoint'] = 'API Endpoint';
 $string['config_title'] = 'Block title';
 $string['config_api_endpoint'] = 'API Endpoint URL';
 $string['config_api_endpoint_desc'] = 'The endpoint URL where files will be uploaded';
+$string['config_api_key'] = 'API Key';
+$string['config_api_key_desc'] = 'The API Key sent in the X-API-Key header when making upload requests';
 $string['config_enabled'] = 'Enable auto upload';
 $string['config_enabled_desc'] = 'Enable automatic file upload to external API';
 

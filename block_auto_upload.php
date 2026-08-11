@@ -86,10 +86,6 @@ class block_auto_upload extends block_base {
         // Get current settings
         $enabled = get_config('block_auto_upload', 'enabled');
         $api_endpoint = get_config('block_auto_upload', 'api_endpoint');
-        
-        if (empty($api_endpoint)) {
-            $api_endpoint = 'http://103.155.224.67:5200/uploads';
-        }
 
         // Build the content
         $content = '';

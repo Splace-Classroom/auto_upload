@@ -21,7 +21,8 @@ A Moodle block plugin that automatically uploads files to an external API endpoi
 ### Global Settings
 
 - **Enable auto upload**: Turn the auto upload functionality on/off
-- **API Endpoint URL**: Configure the external API endpoint (default: http://103.155.224.67:5200/uploads)
+- **API Endpoint URL**: Configure the external API endpoint
+- **API Key**: Configure the API key sent in the `X-API-Key` HTTP header
 
 ### Block Settings
 
@@ -30,17 +31,23 @@ A Moodle block plugin that automatically uploads files to an external API endpoi
 
 ## API Integration
 
-The plugin sends files to the configured endpoint using HTTP POST with form-data containing:
+The plugin sends files to the configured endpoint using HTTP POST with:
 
+**Headers:**
+- `X-API-Key`: API key configured in plugin settings
+
+**Form-data:**
 - `course_id`: The Moodle course ID where the file was uploaded
 - `module_id`: The Moodle module ID (if applicable, 0 otherwise)
+- `course_name`: Name of the Moodle course
 - `file`: The actual file content
 
 ### API Endpoint Requirements
 
 - Accept HTTP POST requests
 - Support multipart/form-data for file uploads
-- Expected fields: course_id, module_id, file
+- Read `X-API-Key` header for authentication
+- Expected fields: course_id, module_id, course_name, file
 
 ## Usage
 
