@@ -39,7 +39,7 @@ if ($ADMIN->fulltree) {
         'block_auto_upload/api_endpoint',
         get_string('config_api_endpoint', 'block_auto_upload'),
         get_string('config_api_endpoint_desc', 'block_auto_upload'),
-        '',
+        'https://api.gumilarmn.me/uploads',
         PARAM_URL
     ));
 
